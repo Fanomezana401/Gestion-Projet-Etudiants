@@ -5,7 +5,6 @@ import com.example.gestionprojets.dto.SendMessageRequest;
 import com.example.gestionprojets.entity.User;
 import com.example.gestionprojets.service.MessageService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -22,15 +21,21 @@ public class MessageController {
     private final MessageService messageService;
 
     @PostMapping
-    public ResponseEntity<MessageResponseDTO> sendMessage(@RequestBody SendMessageRequest request, Authentication authentication) {
+    public ResponseEntity<Void> sendMessage(@RequestBody SendMessageRequest request, Authentication authentication) {
         User currentUser = (User) authentication.getPrincipal();
-        MessageResponseDTO sentMessage = messageService.sendMessage(request, currentUser);
-        return ResponseEntity.status(HttpStatus.CREATED).body(sentMessage);
+        messageService.sendMessage(request, currentUser);
+        return ResponseEntity.ok().build();
     }
 
     @GetMapping("/project/{projectId}")
-    public ResponseEntity<List<MessageResponseDTO>> getProjectMessages(@PathVariable Long projectId) {
-        List<MessageResponseDTO> messages = messageService.getProjectMessages(projectId);
+    public ResponseEntity<List<MessageResponseDTO>> getProjectMessages(
+            @PathVariable Long projectId,
+            Authentication authentication
+            // Suppression des paramètres @RequestParam(defaultValue = "0") int page,
+            // et @RequestParam(defaultValue = "20") int size
+    ) {
+        User currentUser = (User) authentication.getPrincipal();
+        List<MessageResponseDTO> messages = messageService.getProjectMessages(projectId, currentUser.getId());
         return ResponseEntity.ok(messages);
     }
 
@@ -39,6 +44,13 @@ public class MessageController {
         User currentUser = (User) authentication.getPrincipal();
         long count = messageService.countUnreadMessages(currentUser.getId());
         return ResponseEntity.ok(Collections.singletonMap("count", count));
+    }
+
+    @GetMapping("/count/unread-per-project")
+    public ResponseEntity<Map<Long, Long>> getUnreadMessagesCountsPerProject(Authentication authentication) {
+        User currentUser = (User) authentication.getPrincipal();
+        Map<Long, Long> counts = messageService.getUnreadMessagesCountsPerProject(currentUser.getId());
+        return ResponseEntity.ok(counts);
     }
 
     @PutMapping("/project/{projectId}/mark-as-read")

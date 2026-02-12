@@ -1,21 +1,25 @@
 import axios from 'axios';
 
-const API_URL = 'http://localhost:8080/api'; // Assurez-vous que c'est la bonne URL pour votre backend
-
 const api = axios.create({
-  baseURL: API_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  baseURL: 'http://localhost:8080/api',
 });
 
-// Intercepteur pour ajouter le token JWT à chaque requête si disponible
+// Intercepteur pour ajouter le token JWT à chaque requête
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
+    
+    // --- DÉBUT DU DÉBOGAGE ---
+    console.log(`[API Interceptor] Requête sortante vers : ${config.url}`);
+    
     if (token) {
-      config.headers['Authorization'] = `Bearer ${token}`;
+      console.log('[API Interceptor] Token trouvé, ajout de l\'en-tête Authorization.');
+      config.headers.Authorization = `Bearer ${token}`;
+    } else {
+      console.warn('[API Interceptor] ATTENTION : Aucun token trouvé dans le localStorage.');
     }
+    // --- FIN DU DÉBOGAGE ---
+
     return config;
   },
   (error) => {

@@ -1,155 +1,164 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import api from '../services/api';
-import { Loader2, Send, ArrowLeft } from 'lucide-react';
+import { Loader2, Send, CheckCheck } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useSse } from '../context/SseContext';
 
 interface Message {
   id: number;
   senderId: number;
   senderFirstname: string;
   senderLastname: string;
+  senderEmail: string;
   content: string;
   sentAt: string;
+  projectId: number;
+  isRead: boolean;
 }
+
+const formatDate = (dateString: string) => {
+  const date = new Date(dateString);
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+
+  if (date.toDateString() === today.toDateString()) return "Aujourd'hui";
+  if (date.toDateString() === yesterday.toDateString()) return "Hier";
+  return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+};
 
 const MessagePage: React.FC = () => {
   const { projectId } = useParams<{ projectId: string }>();
-  const navigate = useNavigate();
   const { user } = useAuth();
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { messagesByProject, loadMessagesForProject } = useSse();
   const [newMessageContent, setNewMessageContent] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const pId = Number(projectId);
+  const messages = messagesByProject.get(pId) || [];
 
   useEffect(() => {
-    if (projectId) {
-      fetchMessages(Number(projectId));
-    }
-  }, [projectId]);
+    loadMessagesForProject(pId);
+    api.put(`/messages/project/${pId}/mark-as-read`).catch(console.error);
+  }, [pId, loadMessagesForProject]);
 
   useEffect(() => {
-    scrollToBottom();
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  const fetchMessages = async (pId: number) => {
-    try {
-      setLoading(true);
-      const response = await api.get<Message[]>(`/messages/project/${pId}`);
-      setMessages(response.data);
-      setError(null);
-      if (user && response.data.length > 0) {
-        await api.put(`/messages/project/${pId}/mark-as-read`);
-      }
-    } catch (err) {
-      setError('Erreur lors de la récupération des messages.');
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleSendMessage = async () => {
-    if (!newMessageContent.trim() || !projectId) return;
+    if (!newMessageContent.trim() || !pId) return;
+    
+    const chatMessage = { projectId: pId, content: newMessageContent };
+
     try {
-      const request = {
-        projectId: Number(projectId),
-        content: newMessageContent,
-      };
-      const response = await api.post<Message>('/messages', request);
-      setMessages((prev) => [...prev, response.data]);
       setNewMessageContent('');
+      await api.post('/messages', chatMessage);
     } catch (err) {
-      setError("Erreur lors de l'envoi du message.");
-      console.error(err);
+      console.error("Erreur lors de l'envoi du message:", err);
+      setNewMessageContent(chatMessage.content);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center min-h-screen">
-        <Loader2 className="h-10 w-10 animate-spin text-indigo-600" />
-        <p className="ml-4 text-lg text-gray-700">Chargement des messages...</p>
-      </div>
-    );
-  }
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+    }
+  }, [newMessageContent]);
 
-  if (error) {
-    return (
-      <div className="text-center p-8 text-red-600 bg-red-100 border border-red-300 rounded-lg">
-        <p className="font-bold text-xl">Erreur</p>
-        <p>{error}</p>
-      </div>
-    );
-  }
+  let lastDate = '';
 
   return (
-    <div className="p-6 bg-gray-50 min-h-full flex flex-col h-full">
-      <div className="flex items-center mb-6">
-        <button
-          onClick={() => navigate(-1)}
-          className="flex items-center justify-center p-2 rounded-full hover:bg-gray-200 transition duration-200 mr-4"
-        >
-          <ArrowLeft className="h-6 w-6 text-gray-700" />
-        </button>
-        <h1 className="text-3xl font-bold text-gray-800">Messagerie du Projet {projectId}</h1>
-      </div>
+    <div className="flex flex-col h-full bg-gradient-to-br from-slate-50 via-gray-50 to-stone-50 dark:from-slate-900 dark:via-gray-900 dark:to-stone-900">
+      {/* Entête de la Conversation */}
+      <header className="p-6 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm">
+        <h2 className="text-2xl font-semibold text-slate-900 dark:text-slate-50 tracking-tight">
+          Conversation du Projet #{projectId}
+        </h2>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+          Échangez avec votre équipe
+        </p>
+      </header>
 
-      <div className="flex-1 bg-white p-6 rounded-lg shadow-md overflow-y-auto mb-4 flex flex-col space-y-4">
-        {messages.length === 0 ? (
-          <p className="text-center text-gray-500 py-8">Aucun message pour ce projet. Soyez le premier à envoyer un message !</p>
-        ) : (
-          messages.map((msg) => (
-            <div
-              key={msg.id}
-              className={`flex ${msg.senderId === user?.id ? 'justify-end' : 'justify-start'}`}
-            >
-              <div
-                className={`max-w-[70%] p-3 rounded-lg shadow-sm ${
-                  msg.senderId === user?.id
-                    ? 'bg-indigo-500 text-white rounded-br-none'
-                    : 'bg-gray-200 text-gray-800 rounded-bl-none'
-                }`}
-              >
-                <div className="font-semibold text-sm mb-1">
-                  {msg.senderId === user?.id ? 'Vous' : `${msg.senderFirstname} ${msg.senderLastname}`}
+      {/* Zone des Messages */}
+      <div className="flex-1 p-6 overflow-y-auto space-y-4">
+        {messages.map((msg) => {
+          const isMyMessage = msg.senderEmail === user?.email;
+          const senderName = isMyMessage ? 'Vous' : `${msg.senderFirstname} ${msg.senderLastname}`;
+          const messageDate = formatDate(msg.sentAt);
+          const showDateHeader = messageDate !== lastDate;
+          lastDate = messageDate;
+
+          return (
+            <React.Fragment key={msg.id}>
+              {showDateHeader && (
+                <div className="flex justify-center my-4">
+                  <span className="bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-medium px-4 py-1.5 rounded-lg border border-slate-200 dark:border-slate-600">
+                    {messageDate}
+                  </span>
                 </div>
-                <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
-                <div className="text-right text-xs mt-1 opacity-80">
-                  {new Date(msg.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              )}
+              <div className={`flex ${isMyMessage ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-[70%] p-4 shadow-lg border transition-all ${
+                  isMyMessage 
+                    ? 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 border-slate-800 dark:border-slate-200 rounded-t-xl rounded-bl-xl rounded-br-none' 
+                    : 'bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border-slate-200 dark:border-slate-700 rounded-t-xl rounded-br-xl rounded-bl-none'
+                }`}>
+                  {!isMyMessage && (
+                    <p className="font-semibold text-sm mb-2 text-slate-700 dark:text-slate-300">
+                      {senderName}
+                    </p>
+                  )}
+                  <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                  <div className={`flex items-center justify-end text-xs mt-2 ${
+                    isMyMessage 
+                      ? 'text-slate-300 dark:text-slate-600' 
+                      : 'text-slate-500 dark:text-slate-400'
+                  }`}>
+                    <span>{new Date(msg.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                    {isMyMessage && msg.isRead && (
+                      <CheckCheck size={14} className="ml-1.5" />
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))
-        )}
+            </React.Fragment>
+          );
+        })}
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="bg-white p-4 rounded-lg shadow-md flex items-center">
-        <textarea
-          value={newMessageContent}
-          onChange={(e) => setNewMessageContent(e.target.value)}
-          onKeyPress={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              handleSendMessage();
-            }
-          }}
-          placeholder="Écrivez votre message..."
-          className="flex-1 border border-gray-300 p-3 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 resize-none mr-4"
-          rows={1}
-        />
-        <button
-          onClick={handleSendMessage}
-          className="flex items-center bg-indigo-600 text-white font-semibold py-3 px-5 rounded-lg shadow-md hover:bg-indigo-700 transition duration-300"
-        >
-          <Send className="mr-2 h-5 w-5" /> Envoyer
-        </button>
+      {/* Champ de Saisie */}
+      <div className="p-6 border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-lg">
+        <div className="flex items-end gap-3">
+          <textarea
+            ref={textareaRef}
+            value={newMessageContent}
+            onChange={(e) => setNewMessageContent(e.target.value)}
+            onKeyPress={(e) => { 
+              if (e.key === 'Enter' && !e.shiftKey) { 
+                e.preventDefault(); 
+                handleSendMessage(); 
+              } 
+            }}
+            placeholder="Écrivez votre message..."
+            className="flex-1 border border-slate-300 dark:border-slate-600 p-3 rounded-lg focus:ring-2 focus:ring-slate-400 focus:border-slate-400 focus:outline-none resize-none bg-slate-50 dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 transition-all"
+            rows={1}
+          />
+          <button 
+            onClick={handleSendMessage} 
+            disabled={!newMessageContent.trim()}
+            className="group relative flex items-center justify-center bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 font-semibold p-3.5 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden"
+          >
+            <span className="relative z-10">
+              <Send size={20} />
+            </span>
+            <div className="absolute inset-0 bg-slate-800 dark:bg-slate-200 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Service
@@ -45,10 +46,11 @@ public class AuthService {
         
         userRepository.save(user);
         
-        // Ajouter le prénom et le nom comme claims
         Map<String, Object> extraClaims = new HashMap<>();
+        extraClaims.put("id", user.getId());
         extraClaims.put("firstname", user.getFirstname());
         extraClaims.put("lastname", user.getLastname());
+        extraClaims.put("role", user.getRole().getName()); // CORRECTION: Utiliser "role" (singulier) et la chaîne directe
 
         var jwtToken = jwtService.generateToken(extraClaims, user);
         return new LoginResponse(jwtToken);
@@ -64,10 +66,11 @@ public class AuthService {
         var user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new RuntimeException("User not found after authentication"));
         
-        // Ajouter le prénom et le nom comme claims
         Map<String, Object> extraClaims = new HashMap<>();
+        extraClaims.put("id", user.getId());
         extraClaims.put("firstname", user.getFirstname());
         extraClaims.put("lastname", user.getLastname());
+        extraClaims.put("role", user.getRole().getName()); // CORRECTION: Utiliser "role" (singulier) et la chaîne directe
 
         var jwtToken = jwtService.generateToken(extraClaims, user);
         return new LoginResponse(jwtToken);

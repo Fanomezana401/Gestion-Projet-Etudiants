@@ -1,17 +1,66 @@
-import React, { useContext } from 'react';
-import { Outlet, Link, useNavigate } from 'react-router-dom';
+import React, { useContext, useMemo } from 'react';
+import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
-import { LayoutDashboard, Folder, ListTodo, MessageSquare, BarChart2, LogOut } from 'lucide-react';
+import { useSse } from '../context/SseContext';
+import {
+  LayoutDashboard,
+  Folder,
+  ListTodo,
+  MessageSquare,
+  BarChart2,
+  LogOut,
+  Mail,
+  UserCheck,
+  FileCheck,
+  Users
+} from 'lucide-react';
 
+/* ---------------- NavItem ---------------- */
+const NavItem: React.FC<{
+  to: string;
+  icon: React.ReactNode;
+  label: string;
+  notificationCount?: number;
+}> = ({ to, icon, label, notificationCount }) => (
+  <NavLink
+    to={to}
+    className={({ isActive }) =>
+      `flex items-center py-3 px-4 rounded-lg mb-2 transition-all duration-300 font-medium ${
+        isActive
+          ? 'bg-slate-700 text-white shadow border border-slate-600'
+          : 'text-slate-300 hover:bg-slate-700 hover:text-white'
+      }`
+    }
+  >
+    {icon}
+    <span className="flex-1 ml-3">{label}</span>
+
+    {notificationCount && notificationCount > 0 && (
+      <span className="ml-2 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center animate-pulse">
+        {notificationCount}
+      </span>
+    )}
+  </NavLink>
+);
+
+/* ---------------- Layout ---------------- */
 const MainLayout: React.FC = () => {
   const authContext = useContext(AuthContext);
+  const { projectUnreadCounts, newInvitation } = useSse();
   const navigate = useNavigate();
 
-  if (!authContext) {
-    return null;
-  }
+  const totalUnreadMessages = useMemo(
+    () =>
+      Array.from(projectUnreadCounts.values()).reduce(
+        (acc, count) => acc + count,
+        0
+      ),
+    [projectUnreadCounts]
+  );
 
-  const { logout } = authContext;
+  if (!authContext) return null;
+
+  const { user, logout } = authContext;
 
   const handleLogout = () => {
     logout();
@@ -19,43 +68,112 @@ const MainLayout: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen bg-gray-100 font-sans">
-      {/* Sidebar */}
-      <aside className="w-64 bg-white shadow-md p-6 flex flex-col">
-        <h1 className="text-2xl font-bold mb-6 text-indigo-600">
-          <Link to="/dashboard" className="flex items-center">
-            <LayoutDashboard className="mr-2 h-6 w-6" /> Gestion Projets
-          </Link>
-        </h1>
+    <div className="flex h-screen bg-slate-100">
+      {/* ---------------- Sidebar sombre ---------------- */}
+      <aside className="w-72 bg-slate-900 text-white flex flex-col p-6 border-r border-slate-800">
+        {/* Logo / titre */}
+        <div className="mb-8 pb-6 border-b border-slate-800">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            <NavLink
+              to="/dashboard"
+              className="text-white hover:text-slate-300 transition-colors"
+            >
+              Gestion Projets
+            </NavLink>
+          </h1>
+          <p className="text-xs text-slate-400 mt-1">
+            {user?.role === 'TEACHER'
+              ? 'Espace Enseignant'
+              : 'Espace Étudiant'}
+          </p>
+        </div>
+
+        {/* Navigation */}
         <nav className="flex-1">
-          <Link to="/dashboard" className="flex items-center py-2 px-4 rounded hover:bg-gray-200 text-gray-700 hover:text-indigo-600 transition duration-200 mb-2">
-            <LayoutDashboard className="mr-3 h-5 w-5" /> Tableau de Bord
-          </Link>
-          <Link to="/projects" className="flex items-center py-2 px-4 rounded hover:bg-gray-200 text-gray-700 hover:text-indigo-600 transition duration-200 mb-2">
-            <Folder className="mr-3 h-5 w-5" /> Mes Projets
-          </Link>
-          <Link to="/tasks" className="flex items-center py-2 px-4 rounded hover:bg-gray-200 text-gray-700 hover:text-indigo-600 transition duration-200 mb-2">
-            <ListTodo className="mr-3 h-5 w-5" /> Tâches (Kanban)
-          </Link>
-          <Link to="/messages" className="flex items-center py-2 px-4 rounded hover:bg-gray-200 text-gray-700 hover:text-indigo-600 transition duration-200 mb-2">
-            <MessageSquare className="mr-3 h-5 w-5" /> Messagerie
-          </Link>
-          <Link to="/stats" className="flex items-center py-2 px-4 rounded hover:bg-gray-200 text-gray-700 hover:text-indigo-600 transition duration-200 mb-2">
-            <BarChart2 className="mr-3 h-5 w-5" /> Statistiques
-          </Link>
+          <NavItem
+            to="/dashboard"
+            icon={<LayoutDashboard className="h-5 w-5" />}
+            label="Tableau de Bord"
+          />
+
+          {user?.role === 'TEACHER' ? (
+            <>
+              <NavItem
+                to="/teacher/projects"
+                icon={<UserCheck className="h-5 w-5" />}
+                label="Mes Projets"
+              />
+              <NavItem
+                to="/teacher/grading"
+                icon={<FileCheck className="h-5 w-5" />}
+                label="Correction Livrables"
+              />
+              <NavItem
+                to="/teacher/students"
+                icon={<Users className="h-5 w-5" />}
+                label="Suivi Étudiants"
+              />
+              <NavItem
+                to="/messages"
+                icon={<MessageSquare className="h-5 w-5" />}
+                label="Messagerie"
+                notificationCount={totalUnreadMessages}
+              />
+              <NavItem
+                to="/invitations"
+                icon={<Mail className="h-5 w-5" />}
+                label="Invitations"
+                notificationCount={newInvitation ? 1 : 0}
+              />
+            </>
+          ) : (
+            <>
+              <NavItem
+                to="/projects"
+                icon={<Folder className="h-5 w-5" />}
+                label="Mes Projets"
+              />
+              <NavItem
+                to="/tasks"
+                icon={<ListTodo className="h-5 w-5" />}
+                label="Tâches (Kanban)"
+              />
+              <NavItem
+                to="/messages"
+                icon={<MessageSquare className="h-5 w-5" />}
+                label="Messagerie"
+                notificationCount={totalUnreadMessages}
+              />
+              <NavItem
+                to="/invitations"
+                icon={<Mail className="h-5 w-5" />}
+                label="Invitations"
+                notificationCount={newInvitation ? 1 : 0}
+              />
+            </>
+          )}
+
+          <NavItem
+            to="/stats"
+            icon={<BarChart2 className="h-5 w-5" />}
+            label="Statistiques"
+          />
         </nav>
-        <div className="mt-auto">
-          <button 
-            onClick={handleLogout} 
-            className="w-full flex items-center py-2 px-4 rounded hover:bg-red-100 text-red-600 hover:text-red-800 transition duration-200"
+
+        {/* Déconnexion */}
+        <div className="mt-auto pt-6 border-t border-slate-800">
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center py-3 px-4 rounded-lg text-red-400 hover:text-red-300 hover:bg-red-500/10 transition font-medium"
           >
-            <LogOut className="mr-3 h-5 w-5" /> Déconnexion
+            <LogOut className="mr-3 h-5 w-5" />
+            Déconnexion
           </button>
         </div>
       </aside>
 
-      {/* Main Content */}
-      <main className="flex-1 p-6 overflow-auto">
+      {/* ---------------- Contenu clair ---------------- */}
+      <main className="flex-1 overflow-y-auto p-8 bg-gradient-to-br from-slate-50 via-gray-50 to-stone-50 dark:from-slate-900 dark:via-gray-900 dark:to-stone-900">
         <Outlet />
       </main>
     </div>

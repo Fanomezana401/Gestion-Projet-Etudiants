@@ -1,9 +1,20 @@
 package com.example.gestionprojets.entity;
 
 import jakarta.persistence.*;
+import lombok.*;
 
+import java.util.HashSet;
+import java.util.Set;
+
+@Getter
+@Setter
+@ToString
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 @Entity
 @Table(name = "tasks")
+@EqualsAndHashCode(exclude = {"subtasks", "prerequisites"}) // Exclure les collections pour éviter StackOverflowError
 public class Task {
 
     @Id
@@ -17,32 +28,29 @@ public class Task {
     private String description;
 
     @Column(nullable = false)
-    private String status;
+    private String status; // Ex: "À faire", "En cours", "Terminé"
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "sprint_id", nullable = false)
+    @ToString.Exclude // Exclure pour éviter les boucles infinies dans toString
     private Sprint sprint;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "assigned_user_id")
+    @ToString.Exclude // Exclure pour éviter les boucles infinies dans toString
     private User assignedUser;
 
-    // Constructeurs
-    public Task() {}
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "task_dependencies",
+            joinColumns = @JoinColumn(name = "task_id"),
+            inverseJoinColumns = @JoinColumn(name = "prerequisite_task_id")
+    )
+    @ToString.Exclude // Exclure pour éviter les boucles infinies dans toString
+    private Set<Task> prerequisites = new HashSet<>();
 
-    // Getters
-    public Long getId() { return id; }
-    public String getTitle() { return title; }
-    public String getDescription() { return description; }
-    public String getStatus() { return status; }
-    public Sprint getSprint() { return sprint; }
-    public User getAssignedUser() { return assignedUser; }
-
-    // Setters
-    public void setId(Long id) { this.id = id; }
-    public void setTitle(String title) { this.title = title; }
-    public void setDescription(String description) { this.description = description; }
-    public void setStatus(String status) { this.status = status; }
-    public void setSprint(Sprint sprint) { this.sprint = sprint; }
-    public void setAssignedUser(User assignedUser) { this.assignedUser = assignedUser; }
+    // Relation avec les sous-tâches
+    @OneToMany(mappedBy = "task", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @ToString.Exclude // Exclure pour éviter les boucles infinies dans toString
+    private Set<Subtask> subtasks = new HashSet<>();
 }

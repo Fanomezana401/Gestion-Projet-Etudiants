@@ -1,0 +1,27 @@
+    // Dans TaskModal, cette fonction est correcte
+    const handleUpdateSubtask = (index: number, field: keyof Subtask, value: any) => {
+      setEditingTask(prev => ({
+        ...prev,
+        subtasks: prev.subtasks?.map((sub, i) => i === index ? { ...sub, [field]: value } : sub)
+      }));
+    };
+
+    // Dans KanbanBoard, cette fonction est aussi correcte
+    const handleSaveTask = async (taskData: Partial<Task>) => {
+        // ...
+        if (taskData.id) {
+            const payload = { 
+                // ...
+                subtasks: taskData.subtasks?.map(sub => ({ 
+                    ...(sub.id && { id: Number(sub.id) }),
+                    title: sub.title, 
+                    isCompleted: sub.isCompleted // Cette valeur vient directement de l'état de la modale
+                })),
+                // ...
+            };
+            await api.put(`/tasks/${taskData.id}`, payload);
+            fetchTasks(); // Recharge les données fraîches du serveur
+        }
+        // ...
+    };
+    

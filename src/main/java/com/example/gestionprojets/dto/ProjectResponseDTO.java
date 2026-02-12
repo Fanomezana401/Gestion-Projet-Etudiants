@@ -7,8 +7,8 @@ import lombok.NoArgsConstructor;
 import java.util.List;
 
 @Data
-@AllArgsConstructor
 @NoArgsConstructor
+@AllArgsConstructor
 public class ProjectResponseDTO {
     private Long id;
     private String name;
@@ -16,5 +16,8 @@ public class ProjectResponseDTO {
     private String status;
     private int progress;
     private List<SprintResponseDTO> sprints;
-    private long unreadMessagesCount; // Nouveau champ pour les messages non lus
+    private long unreadMessages;
+    private List<StudentDTO> students; // Ajout des étudiants
+    private String supervisorName; // Ajout du nom du superviseur
+    private List<DeliverableDTO> deliverables; // Ajout des livrables
 }

@@ -16,40 +16,64 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/tasks")
+@RequestMapping("/api") // Utiliser une base commune pour la cohérence
 @RequiredArgsConstructor
 public class TaskController {
 
     private final TaskService taskService;
 
-    @GetMapping("/sprint/{sprintId}") // Modifier le chemin pour utiliser sprintId
-    public ResponseEntity<List<TaskResponseDTO>> getTasksBySprintId(@PathVariable Long sprintId) {
-        List<TaskResponseDTO> tasks = taskService.getTasksBySprintId(sprintId);
+    // Correction de l'URL pour correspondre au frontend
+    @GetMapping("/projects/{projectId}/sprints/{sprintId}/tasks")
+    public ResponseEntity<List<TaskResponseDTO>> getTasksBySprint(
+            @PathVariable Long projectId,
+            @PathVariable Long sprintId,
+            Authentication authentication) { // Ajout de l'objet Authentication
+        
+        User currentUser = (User) authentication.getPrincipal();
+        List<TaskResponseDTO> tasks = taskService.getTasksBySprint(projectId, sprintId, currentUser); // Appel de la bonne méthode
         return ResponseEntity.ok(tasks);
     }
 
-    @PostMapping
+    @PostMapping("/tasks") // Garder un endpoint simple pour la création
     public ResponseEntity<TaskResponseDTO> createTask(@RequestBody CreateTaskRequest request) {
         TaskResponseDTO createdTask = taskService.createTask(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(createdTask);
     }
 
-    @PutMapping("/{taskId}")
-    public ResponseEntity<TaskResponseDTO> updateTask(@PathVariable Long taskId, @RequestBody UpdateTaskRequest request) {
-        TaskResponseDTO updatedTask = taskService.updateTask(taskId, request);
+    @PutMapping("/tasks/{taskId}")
+    public ResponseEntity<TaskResponseDTO> updateTask(
+            @PathVariable Long taskId, 
+            @RequestBody UpdateTaskRequest request,
+            Authentication authentication) { // Ajout de l'objet Authentication
+        User currentUser = (User) authentication.getPrincipal();
+        TaskResponseDTO updatedTask = taskService.updateTask(taskId, request, currentUser); // Passer l'utilisateur au service
         return ResponseEntity.ok(updatedTask);
     }
 
-    @DeleteMapping("/{taskId}")
+    @DeleteMapping("/tasks/{taskId}")
     public ResponseEntity<Void> deleteTask(@PathVariable Long taskId) {
         taskService.deleteTask(taskId);
         return ResponseEntity.noContent().build();
     }
 
-    @GetMapping("/count/completed")
+    @GetMapping("/tasks/count/completed")
     public ResponseEntity<Map<String, Long>> countCompletedTasks(Authentication authentication) {
         User currentUser = (User) authentication.getPrincipal();
         long count = taskService.countCompletedTasksByUserId(currentUser.getId());
         return ResponseEntity.ok(Collections.singletonMap("count", count));
+    }
+
+    // --- Points de terminaison pour les dépendances ---
+
+    @PostMapping("/tasks/{taskId}/dependencies/{prerequisiteId}")
+    public ResponseEntity<Void> addPrerequisite(@PathVariable Long taskId, @PathVariable Long prerequisiteId) {
+        taskService.addPrerequisite(taskId, prerequisiteId);
+        return ResponseEntity.ok().build();
+    }
+
+    @DeleteMapping("/tasks/{taskId}/dependencies/{prerequisiteId}")
+    public ResponseEntity<Void> removePrerequisite(@PathVariable Long taskId, @PathVariable Long prerequisiteId) {
+        taskService.removePrerequisite(taskId, prerequisiteId);
+        return ResponseEntity.noContent().build();
     }
 }

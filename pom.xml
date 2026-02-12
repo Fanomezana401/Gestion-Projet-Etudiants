@@ -22,7 +22,7 @@
 
     <properties>
         <java.version>17</java.version>
-        <jjwt.version>0.11.5</jjwt.version> <!-- Définition de la version de JJWT -->
+        <jjwt.version>0.11.5</jjwt.version>
     </properties>
 
     <dependencies>
@@ -90,10 +90,15 @@
             <version>${jjwt.version}</version>
             <scope>runtime</scope>
         </dependency>
-        <!-- Fin JJWT -->
+        
+        <!-- OpenPDF pour la génération de rapports -->
+        <dependency>
+            <groupId>com.github.librepdf</groupId>
+            <artifactId>openpdf</artifactId>
+            <version>1.3.30</version>
+        </dependency>
 
     </dependencies>
-
 
     <build>
         <plugins>

@@ -7,7 +7,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.Set; // Importer Set
+import java.util.Set;
 
 @Entity
 @Table(name = "users")
@@ -31,53 +31,52 @@ public class User implements UserDetails {
     private Role role;
 
     @OneToMany(mappedBy = "assignedUser")
-    private Set<Task> assignedTasks; // Utiliser Set
+    private Set<Task> assignedTasks;
 
     @OneToMany(mappedBy = "sender", cascade = CascadeType.ALL)
-    private Set<Message> sentMessages; // Utiliser Set
+    private Set<Message> sentMessages;
 
     @OneToMany(mappedBy = "receiver", cascade = CascadeType.ALL)
-    private Set<Message> receivedMessages; // Utiliser Set
+    private Set<Message> receivedMessages;
+
+    // Nouvelle relation avec les projets auxquels l'utilisateur appartient
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<ProjectMember> projectMemberships;
 
     // Constructeurs
     public User() {}
 
-    // Getters
+    // Getters et Setters
     public Long getId() { return id; }
-    public String getFirstname() { return firstname; }
-    public String getLastname() { return lastname; }
-    public String getEmail() { return email; }
-    public Role getRole() { return role; }
-    public Set<Task> getAssignedTasks() { return assignedTasks; } // Utiliser Set
-    public Set<Message> getSentMessages() { return sentMessages; } // Utiliser Set
-    public Set<Message> getReceivedMessages() { return receivedMessages; } // Utiliser Set
-
-    // Setters
     public void setId(Long id) { this.id = id; }
+    public String getFirstname() { return firstname; }
     public void setFirstname(String firstname) { this.firstname = firstname; }
+    public String getLastname() { return lastname; }
     public void setLastname(String lastname) { this.lastname = lastname; }
+    public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }
+    public String getPassword() { return password; }
     public void setPassword(String password) { this.password = password; }
+    public Role getRole() { return role; }
     public void setRole(Role role) { this.role = role; }
-    public void setAssignedTasks(Set<Task> assignedTasks) { this.assignedTasks = assignedTasks; } // Utiliser Set
-    public void setSentMessages(Set<Message> sentMessages) { this.sentMessages = sentMessages; } // Utiliser Set
-    public void setReceivedMessages(Set<Message> receivedMessages) { this.receivedMessages = receivedMessages; } // Utiliser Set
+    public Set<Task> getAssignedTasks() { return assignedTasks; }
+    public void setAssignedTasks(Set<Task> assignedTasks) { this.assignedTasks = assignedTasks; }
+    public Set<Message> getSentMessages() { return sentMessages; }
+    public void setSentMessages(Set<Message> sentMessages) { this.sentMessages = sentMessages; }
+    public Set<Message> getReceivedMessages() { return receivedMessages; }
+    public void setReceivedMessages(Set<Message> receivedMessages) { this.receivedMessages = receivedMessages; }
+    public Set<ProjectMember> getProjectMemberships() { return projectMemberships; }
+    public void setProjectMemberships(Set<ProjectMember> projectMemberships) { this.projectMemberships = projectMemberships; }
 
     // UserDetails methods
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return List.of(new SimpleGrantedAuthority(role.getName()));
+        // CORRECTION: Ajouter le préfixe "ROLE_" pour que Spring Security le reconnaisse
+        return List.of(new SimpleGrantedAuthority("ROLE_" + role.getName()));
     }
 
     @Override
-    public String getPassword() {
-        return password;
-    }
-
-    @Override
-    public String getUsername() {
-        return email;
-    }
+    public String getUsername() { return email; }
 
     @Override
     public boolean isAccountNonExpired() { return true; }

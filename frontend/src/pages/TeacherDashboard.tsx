@@ -1,54 +1,201 @@
-import React, { useState } from "react";
-import Sidebar from "../components/Sidebar";
-import Navbar from "../components/Navbar";
-import ProjectCard from "../components/ProjectCard";
-import ProjectModal from "../components/ProjectModal";
-import KanbanBoard from "../components/KanbanBoard";
-import { useAuth } from "../context/AuthContext";
+import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import api from '../services/api';
+import { Loader2, Edit, Folder, AlertTriangle, Calendar, FileText, Bell } from 'lucide-react';
 
-export default function TeacherDashboard() {
-  const { user } = useAuth();
-  const [projects, setProjects] = useState<any[]>(() => {
-    try { return JSON.parse(localStorage.getItem("projects-teacher")||"[]"); } catch { return []; }
-  });
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editing, setEditing] = useState<any|undefined>(undefined);
+// Interfaces
+interface Project {
+  id: number;
+  name: string;
+  description: string;
+  progress: number;
+  status: string;
+}
 
-  const open = (p?:any)=> { setEditing(p); setModalOpen(true); };
-  const save = (p:any) => {
-    setProjects(prev => {
-      const found = prev.find(x=>x.id===p.id);
-      const next = found ? prev.map(x=> x.id===p.id ? p : x) : [...prev, p];
-      localStorage.setItem("projects-teacher", JSON.stringify(next));
-      return next;
-    });
-    setModalOpen(false);
-  };
-  const del = (id:string)=> {
-    setProjects(prev => { const next = prev.filter(p=>p.id!==id); localStorage.setItem("projects-teacher", JSON.stringify(next)); return next; });
-  };
+interface Deadline {
+  id: number;
+  name: string;
+  date: string;
+  projectName: string;
+}
+
+interface Deliverable {
+  id: number;
+  name: string;
+  submittedAt: string;
+  projectName: string;
+}
+
+interface TeacherStats {
+  totalProjects: number;
+  lateProjectsCount: number;
+  unreadNotifications: number;
+}
+
+const TeacherDashboard: React.FC = () => {
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [lateProjects, setLateProjects] = useState<Project[]>([]);
+  const [deadlines, setDeadlines] = useState<Deadline[]>([]);
+  const [deliverables, setDeliverables] = useState<Deliverable[]>([]);
+  const [stats, setStats] = useState<TeacherStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchAllData = async () => {
+      try {
+        setLoading(true);
+        const [
+          projectsResponse,
+          lateProjectsResponse,
+          deadlinesResponse,
+          deliverablesResponse,
+          statsResponse
+        ] = await Promise.all([
+          api.get<Project[]>('/teacher/projects'),
+          api.get<Project[]>('/teacher/projects/late'),
+          api.get<Deadline[]>('/teacher/deadlines/next'),
+          api.get<Deliverable[]>('/teacher/deliverables/latest'),
+          api.get<TeacherStats>('/teacher/statistics')
+        ]);
+
+        setProjects(projectsResponse.data);
+        setLateProjects(lateProjectsResponse.data);
+        setDeadlines(deadlinesResponse.data);
+        setDeliverables(deliverablesResponse.data);
+        setStats(statsResponse.data);
+        setError(null);
+      } catch (err: any) {
+        setError(err.response?.data?.message || 'Erreur lors de la récupération des données du tableau de bord.');
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAllData();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Loader2 className="h-10 w-10 animate-spin text-indigo-600" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return <div className="text-center p-8 text-red-600">{error}</div>;
+  }
 
   return (
-    <div className="flex h-screen">
-      <Sidebar role="teacher" />
-      <div className="flex-1 flex flex-col">
-        <Navbar />
-        <main className="p-6 overflow-auto">
-          <div className="flex justify-between items-center mb-4">
-            <h1 className="text-2xl font-bold">Projets</h1>
-            <button onClick={()=>open()} className="px-4 py-2 bg-indigo-600 text-white rounded">+ Nouveau</button>
-          </div>
+    <div className="p-6 bg-gray-50 dark:bg-gray-900 min-h-full">
+      <h1 className="text-3xl font-bold text-gray-800 dark:text-white mb-8">
+        Tableau de Bord du Professeur
+      </h1>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {projects.map(p => <ProjectCard key={p.id} project={p} onEdit={open} onDelete={del} />)}
+      {/* Cartes de statistiques */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-xl flex items-center transform hover:scale-102 transition-all duration-300">
+          <Folder className="h-8 w-8 text-blue-500 mr-4" />
+          <div>
+            <p className="text-gray-600 dark:text-gray-400">Projets Supervisés</p>
+            <p className="text-2xl font-bold text-gray-800 dark:text-white">{stats?.totalProjects || 0}</p>
           </div>
-
-          <h2 className="text-xl font-bold mt-8 mb-4">Kanban</h2>
-          <KanbanBoard storageKey="kanban-teacher" />
-        </main>
+        </div>
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-xl flex items-center transform hover:scale-102 transition-all duration-300">
+          <AlertTriangle className="h-8 w-8 text-red-500 mr-4" />
+          <div>
+            <p className="text-gray-600 dark:text-gray-400">Projets en Retard</p>
+            <p className="text-2xl font-bold text-gray-800 dark:text-white">{stats?.lateProjectsCount || 0}</p>
+          </div>
+        </div>
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-xl flex items-center transform hover:scale-102 transition-all duration-300">
+          <Bell className="h-8 w-8 text-yellow-500 mr-4" />
+          <div>
+            <p className="text-gray-600 dark:text-gray-400">Notifications</p>
+            <p className="text-2xl font-bold text-gray-800 dark:text-white">{stats?.unreadNotifications || 0}</p>
+          </div>
+        </div>
       </div>
 
-      {modalOpen && <ProjectModal isOpen={modalOpen} project={editing} onSave={save} onClose={()=>setModalOpen(false)} />}
+      {/* Listes de détails */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-xl">
+          <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-4 flex items-center">
+            <Calendar className="mr-2" /> Prochaines Deadlines
+          </h2>
+          <div className="space-y-2">
+            {deadlines.map(d => (
+              <div key={d.id} className="text-sm text-gray-700 dark:text-gray-300">
+                {d.name} ({d.projectName}) - {new Date(d.date).toLocaleDateString()}
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-xl">
+          <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-4 flex items-center">
+            <FileText className="mr-2" /> Derniers Livrables
+          </h2>
+          <div className="space-y-2">
+            {deliverables.map(d => (
+              <div key={d.id} className="text-sm text-gray-700 dark:text-gray-300">
+                {d.name} ({d.projectName}) - {new Date(d.submittedAt).toLocaleDateString()}
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-xl">
+          <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-4 flex items-center">
+            <AlertTriangle className="mr-2" /> Projets en Retard
+          </h2>
+          <div className="space-y-2">
+            {lateProjects.map(p => (
+              <div key={p.id} className="text-sm text-gray-700 dark:text-gray-300">{p.name}</div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Liste des projets supervisés */}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6">
+        <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-4">Tous les Projets Supervisés</h2>
+        <div className="space-y-4">
+          {projects.map(project => (
+            <div
+              key={project.id}
+              className="p-4 border dark:border-gray-700 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center hover:bg-gray-50 dark:hover:bg-gray-700 transition"
+            >
+              <div className="mb-4 sm:mb-0">
+                <p className="font-bold text-lg text-gray-800 dark:text-white">{project.name}</p>
+                <p className="text-sm text-gray-600 dark:text-gray-300">{project.description}</p>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="w-40">
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-sm text-gray-600 dark:text-gray-400">Progression</span>
+                    <span className="text-sm font-semibold text-gray-800 dark:text-white">{project.progress}%</span>
+                  </div>
+                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
+                    <div
+                      className="bg-indigo-600 h-2.5 rounded-full"
+                      style={{ width: `${project.progress}%` }}
+                    ></div>
+                  </div>
+                </div>
+                <Link to="/teacher/grading">
+                  <button className="flex items-center bg-green-500 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-green-600 transition">
+                    <Edit className="mr-2 h-5 w-5" />
+                    Noter
+                  </button>
+                </Link>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
-}
+};
+
+export default TeacherDashboard;

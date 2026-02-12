@@ -7,13 +7,19 @@ import DashboardPage from './pages/DashboardPage';
 import MainLayout from './layouts/MainLayout';
 import ProjectListPage from './pages/ProjectListPage';
 import ProjectDetailPage from './pages/ProjectDetailPage';
-import KanbanBoard from './components/KanbanBoard';
+import KanbanPage from './pages/KanbanPage';
 import KanbanHubPage from './pages/KanbanHubPage';
-import StatsPage from './pages/StatsPage'; // Importer la nouvelle page StatsPage
+import StatsPage from './pages/StatsPage';
 import CreateProjectPage from './pages/CreateProjectPage';
 import MessagePage from './pages/MessagePage';
 import MessagingHubPage from './pages/MessagingHubPage';
+import InvitationsPage from './pages/InvitationsPage';
+import TeacherProjectsPage from './pages/TeacherProjectsPage';
+import ProjectGradingPage from './pages/ProjectGradingPage';
+import TeacherGradingPage from './pages/TeacherGradingPage'; // Importer la nouvelle page
+import TeacherStudentsPage from './pages/TeacherStudentsPage'; // Importer la nouvelle page
 import { AuthContext } from './context/AuthContext';
+import './index.css';
 
 const App: React.FC = () => {
   const authContext = useContext(AuthContext);
@@ -40,14 +46,23 @@ const App: React.FC = () => {
         <Route path="projects" element={<ProjectListPage />} />
         <Route path="projects/new" element={<CreateProjectPage />} />
         <Route path="projects/:projectId" element={<ProjectDetailPage />} />
-        <Route path="projects/:projectId/sprints/:sprintId/kanban" element={<KanbanBoard />} />
-        <Route path="projects/:projectId/messages" element={<MessagePage />} />
+        <Route path="projects/:projectId/sprints/:sprintId/kanban" element={<KanbanPage />} />
+        
+        <Route path="messages" element={<MessagingHubPage />}>
+          <Route path=":projectId" element={<MessagePage />} />
+        </Route>
+        
         <Route path="tasks" element={<KanbanHubPage />} />
-        <Route path="messages" element={<MessagingHubPage />} />
-        <Route path="stats" element={<StatsPage />} /> {/* Pointer vers la page StatsPage */}
+        <Route path="invitations" element={<InvitationsPage />} />
+        <Route path="stats" element={<StatsPage />} />
+
+        {/* Routes pour le professeur */}
+        <Route path="teacher/projects" element={<TeacherProjectsPage />} />
+        <Route path="teacher/projects/:projectId/grade" element={<ProjectGradingPage />} />
+        <Route path="teacher/grading" element={<TeacherGradingPage />} />
+        <Route path="teacher/students" element={<TeacherStudentsPage />} />
       </Route>
 
-      {/* Redirection pour les routes non trouvées */}
       <Route path="*" element={<Navigate to={isAuthenticated ? "/dashboard" : "/"} />} />
     </Routes>
   );

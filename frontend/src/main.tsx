@@ -1,16 +1,18 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import App from './App.tsx';
+import './index.css';
+import { AuthProvider } from './context/AuthContext.tsx';
 import { BrowserRouter } from 'react-router-dom';
-import App from './App';
-import { AuthProvider } from './context/AuthContext';
-import './index.css'; // L'importation doit être ici
+import { SseProvider } from './context/SseContext.tsx';
+
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <BrowserRouter>
-      <AuthProvider>
+  <BrowserRouter>
+    <AuthProvider>
+      <SseProvider>
         <App />
-      </AuthProvider>
-    </BrowserRouter>
-  </React.StrictMode>
+      </SseProvider>
+    </AuthProvider>
+  </BrowserRouter>
 );

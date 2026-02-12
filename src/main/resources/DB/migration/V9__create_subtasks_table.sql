@@ -1,0 +1,7 @@
+CREATE TABLE subtasks (
+    id BIGSERIAL PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    is_completed BOOLEAN NOT NULL DEFAULT FALSE,
+    task_id BIGINT NOT NULL,
+    CONSTRAINT fk_subtask_task FOREIGN KEY (task_id) REFERENCES tasks (id) ON DELETE CASCADE
+);
